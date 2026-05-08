@@ -28,7 +28,7 @@ const peer = new Peer();
 let conn;
 let currentCall;
 
-/* -------------------- INVITE LINK -------------------- */
+/* ---------------- INVITE LINK ---------------- */
 peer.on('open', (id) => {
 
     const link =
@@ -39,19 +39,26 @@ peer.on('open', (id) => {
 
 });
 
-/* -------------------- AUTO CONNECT -------------------- */
+/* ---------------- AUTO CONNECT ---------------- */
 const params = new URLSearchParams(location.search);
 const autoId = params.get("id");
 
 if (autoId) {
-
-    setTimeout(() => {
-        connectTo(autoId);
-    }, 500);
-
+    setTimeout(() => connectTo(autoId), 800);
 }
 
-/* -------------------- MANUAL CONNECT -------------------- */
+/* ---------------- RECEIVE CONNECTION ---------------- */
+peer.on('connection', (connection) => {
+
+    conn = connection;
+
+    conn.on('open', setupConnection);
+
+    setupConnection();
+
+});
+
+/* ---------------- MANUAL CONNECT ---------------- */
 document.getElementById('connect').onclick = () => {
 
     let input =
@@ -66,18 +73,21 @@ document.getElementById('connect').onclick = () => {
 
 };
 
-/* -------------------- CONNECT FUNCTION -------------------- */
+/* ---------------- CONNECT FUNCTION ---------------- */
 function connectTo(id) {
+
+    if (!id) return;
 
     conn = peer.connect(id);
 
-    conn.on('open', () => {
-        setupConnection();
-    });
+    conn.on('open', setupConnection);
 
+    conn.on('error', (err) => {
+        console.log("Connection error:", err);
+    });
 }
 
-/* -------------------- RECEIVE SCREEN -------------------- */
+/* ---------------- RECEIVE SCREEN ---------------- */
 peer.on('call', (call) => {
 
     currentCall = call;
@@ -93,11 +103,11 @@ peer.on('call', (call) => {
 
 });
 
-/* -------------------- REQUEST SCREEN SHARE -------------------- */
+/* ---------------- SHARE SCREEN REQUEST ---------------- */
 document.getElementById('shareScreen').onclick = () => {
 
     if (!conn || !conn.open) {
-        alert("Connect first");
+        alert("Not connected yet");
         return;
     }
 
@@ -105,17 +115,17 @@ document.getElementById('shareScreen').onclick = () => {
 
 };
 
-/* -------------------- CONNECTION HANDLER -------------------- */
+/* ---------------- SETUP CONNECTION ---------------- */
 function setupConnection() {
+
+    if (!conn) return;
 
     conn.on('data', (data) => {
 
-        /* CLOSE WINDOW */
         if (data.type === 'close') {
             alert("Close requested");
         }
 
-        /* BLOCK SCREEN */
         if (data.type === 'block') {
 
             const tab = window.open("", "_blank");
@@ -123,17 +133,8 @@ function setupConnection() {
             tab.document.write(`
 <!DOCTYPE html>
 <html>
-<body style="
-margin:0;
-background:black;
-overflow:hidden;
-">
-<h1 style="
-color:white;
-font-family:sans-serif;
-text-align:center;
-margin-top:40vh;
-">
+<body style="margin:0;background:black;">
+<h1 style="color:white;text-align:center;margin-top:40vh;">
 SCREEN BLOCKED
 </h1>
 </body>
@@ -142,7 +143,6 @@ SCREEN BLOCKED
 
         }
 
-        /* SCREEN SHARE REQUEST */
         if (data.type === 'startScreenShare') {
 
             navigator.mediaDevices.getDisplayMedia({
@@ -150,12 +150,10 @@ SCREEN BLOCKED
                 audio: false
             })
             .then((stream) => {
-
                 currentCall = peer.call(conn.peer, stream);
-
             })
             .catch(err => {
-                console.log("Screen share cancelled", err);
+                console.log("Cancelled screen share", err);
             });
 
         }
@@ -164,14 +162,13 @@ SCREEN BLOCKED
 
 }
 
-/* -------------------- CLOSE -------------------- */
+/* ---------------- BUTTONS ---------------- */
 document.getElementById('send').onclick = () => {
-    if (conn) conn.send({ type: 'close' });
+    if (conn?.open) conn.send({ type: 'close' });
 };
 
-/* -------------------- BLOCK -------------------- */
 document.getElementById('send2').onclick = () => {
-    if (conn) conn.send({ type: 'block' });
+    if (conn?.open) conn.send({ type: 'block' });
 };
 
 </script>
