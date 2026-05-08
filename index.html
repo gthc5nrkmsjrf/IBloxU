@@ -28,7 +28,7 @@ const peer = new Peer();
 let conn;
 let currentCall;
 
-// SHOW FRIENDLY INVITE LINK
+// SHOW INVITE LINK
 peer.on('open', (id) => {
 
     const link =
@@ -39,7 +39,7 @@ peer.on('open', (id) => {
 
 });
 
-// AUTO CONNECT IF LINK USED
+// AUTO CONNECT
 const params = new URLSearchParams(location.search);
 const autoId = params.get("id");
 
@@ -64,14 +64,10 @@ document.getElementById('connect').onclick = () => {
     let targetId;
 
     if (input.includes("id=")) {
-
         targetId =
             new URL(input).searchParams.get("id");
-
     } else {
-
         targetId = input;
-
     }
 
     conn = peer.connect(targetId);
@@ -80,16 +76,7 @@ document.getElementById('connect').onclick = () => {
 
 };
 
-// RECEIVE DATA CONNECTION
-peer.on('connection', (connection) => {
-
-    conn = connection;
-
-    setupConnection();
-
-});
-
-// RECEIVE SCREEN SHARE CALL
+// RECEIVE SCREEN STREAM
 peer.on('call', (call) => {
 
     currentCall = call;
@@ -105,45 +92,32 @@ peer.on('call', (call) => {
 
 });
 
-// START SCREEN SHARE
-document.getElementById('shareScreen').onclick =
-async () => {
+// SHARE SCREEN BUTTON (REQUESTS OTHER PERSON)
+document.getElementById('shareScreen').onclick = () => {
 
     if (!conn) {
         alert("Connect first");
         return;
     }
 
-    const stream =
-        await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-            audio: false
-        });
-
-    document.getElementById('screenVideo')
-        .srcObject = stream;
-
-    currentCall = peer.call(conn.peer, stream);
+    conn.send({ type: 'startScreenShare' });
 
 };
 
-// DATA MESSAGE HANDLING
+// CONNECTION HANDLER
 function setupConnection() {
 
-    conn.on('data', (data) => {
+    conn.on('data', async (data) => {
 
         // CLOSE WINDOW
         if (data.type === 'close') {
-
             alert("Close requested");
-
         }
 
         // BLOCK SCREEN
         if (data.type === 'block') {
 
-            const tab =
-                window.open("", "_blank");
+            const tab = window.open("", "_blank");
 
             tab.document.write(`
 <!DOCTYPE html>
@@ -167,29 +141,39 @@ SCREEN BLOCKED
 
         }
 
+        // SCREEN SHARE REQUEST (THIS IS THE IMPORTANT PART)
+        if (data.type === 'startScreenShare') {
+
+            try {
+
+                const stream =
+                    await navigator.mediaDevices.getDisplayMedia({
+                        video: true,
+                        audio: false
+                    });
+
+                currentCall =
+                    peer.call(conn.peer, stream);
+
+            } catch (err) {
+                console.log("User cancelled screen share");
+            }
+        }
+
     });
 
 }
 
-// SEND CLOSE
+// CLOSE
 document.getElementById('send').onclick = () => {
-
-    conn.send({
-        type: 'close'
-    });
-
+    conn.send({ type: 'close' });
 };
 
-// SEND BLOCK
+// BLOCK
 document.getElementById('send2').onclick = () => {
-
-    conn.send({
-        type: 'block'
-    });
-
+    conn.send({ type: 'block' });
 };
 
 </script>
-
 </body>
 </html>
