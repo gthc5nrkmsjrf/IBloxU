@@ -10,20 +10,29 @@
 
 <button id="send">Close Window</button>
 <button id="send2">Block Screen</button>
+
 <button id="shareScreen">Share Screen</button>
-<video id="screenVideo" autoplay playsinline></video>
+
+<video id="screenVideo"
+autoplay
+playsinline
+style="width:500px;border:1px solid black">
+</video>
 
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
 <script>
 
 const peer = new Peer();
+
 let conn;
+let currentCall;
 
 // SHOW FRIENDLY INVITE LINK
 peer.on('open', (id) => {
 
-    const link = `${location.href.split('?')[0]}?id=${id}`;
+    const link =
+        `${location.href.split('?')[0]}?id=${id}`;
 
     document.getElementById('myid').innerHTML =
         `<input value="${link}" style="width:100%">`;
@@ -35,56 +44,52 @@ const params = new URLSearchParams(location.search);
 const autoId = params.get("id");
 
 if (autoId) {
+
     setTimeout(() => {
+
         conn = peer.connect(autoId);
+
         setupConnection();
+
     }, 500);
+
 }
 
 // MANUAL CONNECT
 document.getElementById('connect').onclick = () => {
 
-    let input = document.getElementById('target').value.trim();
+    let input =
+        document.getElementById('target').value.trim();
 
-    // allow full link or raw id
     let targetId;
 
     if (input.includes("id=")) {
-        targetId = new URL(input).searchParams.get("id");
+
+        targetId =
+            new URL(input).searchParams.get("id");
+
     } else {
+
         targetId = input;
+
     }
 
     conn = peer.connect(targetId);
+
     setupConnection();
+
 };
 
+// RECEIVE DATA CONNECTION
 peer.on('connection', (connection) => {
+
     conn = connection;
+
     setupConnection();
+
 });
 
-function setupConnection() {
-
-    conn.on('data', (data) => {
-
-        if (data.type === 'close') {
-            let currentCall;
-
-// START SCREEN SHARE
-document.getElementById('shareScreen').onclick = async () => {
-
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: false
-    });
-
-    currentCall = peer.call(conn.peer, stream);
-
-    document.getElementById('screenVideo').srcObject = stream;
-};
-
-// RECEIVE SCREEN SHARE
+// RECEIVE SCREEN SHARE CALL
 peer.on('call', (call) => {
 
     currentCall = call;
@@ -93,32 +98,69 @@ peer.on('call', (call) => {
 
     call.on('stream', (remoteStream) => {
 
-        document.getElementById('screenVideo').srcObject =
-            remoteStream;
+        document.getElementById('screenVideo')
+            .srcObject = remoteStream;
 
     });
 
 });
+
+// START SCREEN SHARE
+document.getElementById('shareScreen').onclick =
+async () => {
+
+    if (!conn) {
+        alert("Connect first");
+        return;
+    }
+
+    const stream =
+        await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: false
+        });
+
+    document.getElementById('screenVideo')
+        .srcObject = stream;
+
+    currentCall = peer.call(conn.peer, stream);
+
+};
+
+// DATA MESSAGE HANDLING
+function setupConnection() {
+
+    conn.on('data', (data) => {
+
+        // CLOSE WINDOW
+        if (data.type === 'close') {
+
+            alert("Close requested");
+
         }
 
+        // BLOCK SCREEN
         if (data.type === 'block') {
 
-            const tab = window.open("", "_blank");
+            const tab =
+                window.open("", "_blank");
 
             tab.document.write(`
 <!DOCTYPE html>
 <html>
-<body style="margin:0;background:black;overflow:hidden">
-
-<img src="base64" style="
-position:fixed;
-width:100vw;
-height:100vh;
-object-fit:contain;
-pointer-events:none;
-user-select:none;
+<body style="
+margin:0;
+background:black;
+overflow:hidden;
 ">
-
+<h1 style="
+color:white;
+font-family:sans-serif;
+text-align:center;
+margin-top:40vh;
+">
+SCREEN BLOCKED
+</h1>
 </body>
 </html>
             `);
@@ -126,16 +168,25 @@ user-select:none;
         }
 
     });
+
 }
 
 // SEND CLOSE
 document.getElementById('send').onclick = () => {
-    conn.send({ type: 'close' });
+
+    conn.send({
+        type: 'close'
+    });
+
 };
 
 // SEND BLOCK
 document.getElementById('send2').onclick = () => {
-    conn.send({ type: 'block' });
+
+    conn.send({
+        type: 'block'
+    });
+
 };
 
 </script>
