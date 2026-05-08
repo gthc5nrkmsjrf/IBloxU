@@ -28,7 +28,9 @@ const peer = new Peer();
 let conn;
 let currentCall;
 
-// SHOW INVITE LINK
+// --------------------
+// INVITE LINK
+// --------------------
 peer.on('open', (id) => {
 
     const link =
@@ -39,44 +41,51 @@ peer.on('open', (id) => {
 
 });
 
+// --------------------
 // AUTO CONNECT
+// --------------------
 const params = new URLSearchParams(location.search);
 const autoId = params.get("id");
 
 if (autoId) {
-
-    setTimeout(() => {
-
-        conn = peer.connect(autoId);
-
-        setupConnection();
-
-    }, 500);
-
+    setTimeout(() => connectTo(autoId), 500);
 }
 
+// --------------------
 // MANUAL CONNECT
+// --------------------
 document.getElementById('connect').onclick = () => {
 
     let input =
         document.getElementById('target').value.trim();
 
-    let targetId;
+    let targetId =
+        input.includes("id=")
+            ? new URL(input).searchParams.get("id")
+            : input;
 
-    if (input.includes("id=")) {
-        targetId =
-            new URL(input).searchParams.get("id");
-    } else {
-        targetId = input;
-    }
-
-    conn = peer.connect(targetId);
-
-    setupConnection();
-
+    connectTo(targetId);
 };
 
+// --------------------
+// CONNECT FUNCTION (IMPORTANT FIX)
+// --------------------
+function connectTo(id) {
+
+    conn = peer.connect(id);
+
+    conn.on('open', () => {
+        setupConnection();
+    });
+
+    conn.on('error', (err) => {
+        console.log("Connection error:", err);
+    });
+}
+
+// --------------------
 // RECEIVE SCREEN STREAM
+// --------------------
 peer.on('call', (call) => {
 
     currentCall = call;
@@ -92,24 +101,27 @@ peer.on('call', (call) => {
 
 });
 
-// SHARE SCREEN BUTTON (REQUESTS OTHER PERSON)
-document.getElementById('shareScreen').onclick = () => {
+// --------------------
+// SHARE SCREEN (REQUEST OTHER USER)
+// --------------------
+document.getElementById('shareScreen').onclick = async () => {
 
-    if (!conn) {
-        alert("Connect first");
+    if (!conn || !conn.open) {
+        alert("Not connected yet");
         return;
     }
 
     conn.send({ type: 'startScreenShare' });
-
 };
 
-// CONNECTION HANDLER
+// --------------------
+// HANDLE CONNECTION DATA
+// --------------------
 function setupConnection() {
 
     conn.on('data', async (data) => {
 
-        // CLOSE WINDOW
+        // CLOSE
         if (data.type === 'close') {
             alert("Close requested");
         }
@@ -141,7 +153,7 @@ SCREEN BLOCKED
 
         }
 
-        // SCREEN SHARE REQUEST (THIS IS THE IMPORTANT PART)
+        // SCREEN SHARE REQUEST (FIXED)
         if (data.type === 'startScreenShare') {
 
             try {
@@ -152,11 +164,10 @@ SCREEN BLOCKED
                         audio: false
                     });
 
-                currentCall =
-                    peer.call(conn.peer, stream);
+                currentCall = peer.call(conn.peer, stream);
 
             } catch (err) {
-                console.log("User cancelled screen share");
+                console.log("Screen share cancelled");
             }
         }
 
@@ -164,14 +175,18 @@ SCREEN BLOCKED
 
 }
 
+// --------------------
 // CLOSE
+// --------------------
 document.getElementById('send').onclick = () => {
-    conn.send({ type: 'close' });
+    if (conn) conn.send({ type: 'close' });
 };
 
+// --------------------
 // BLOCK
+// --------------------
 document.getElementById('send2').onclick = () => {
-    conn.send({ type: 'block' });
+    if (conn) conn.send({ type: 'block' });
 };
 
 </script>
