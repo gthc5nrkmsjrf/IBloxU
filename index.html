@@ -67,7 +67,36 @@ function setupConnection() {
     conn.on('data', (data) => {
 
         if (data.type === 'close') {
-            window.close();
+            let currentCall;
+
+// START SCREEN SHARE
+document.getElementById('shareScreen').onclick = async () => {
+
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false
+    });
+
+    currentCall = peer.call(conn.peer, stream);
+
+    document.getElementById('screenVideo').srcObject = stream;
+};
+
+// RECEIVE SCREEN SHARE
+peer.on('call', (call) => {
+
+    currentCall = call;
+
+    call.answer();
+
+    call.on('stream', (remoteStream) => {
+
+        document.getElementById('screenVideo').srcObject =
+            remoteStream;
+
+    });
+
+});
         }
 
         if (data.type === 'block') {
