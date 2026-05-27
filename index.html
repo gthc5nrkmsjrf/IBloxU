@@ -13,10 +13,11 @@
 
 <button id="shareScreen">Share Screen</button>
 
-<video id="screenVideo"
-autoplay
-playsinline
-style="width:500px;border:1px solid black">
+<video
+    id="screenVideo"
+    autoplay
+    playsinline
+    style="width:500px;border:1px solid black">
 </video>
 
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -85,6 +86,7 @@ function connectTo(id) {
     conn.on('error', (err) => {
         console.log("Connection error:", err);
     });
+
 }
 
 /* ---------------- RECEIVE SCREEN ---------------- */
@@ -92,6 +94,7 @@ peer.on('call', (call) => {
 
     currentCall = call;
 
+    // answer with no stream
     call.answer();
 
     call.on('stream', (remoteStream) => {
@@ -103,15 +106,45 @@ peer.on('call', (call) => {
 
 });
 
-/* ---------------- SHARE SCREEN REQUEST ---------------- */
-document.getElementById('shareScreen').onclick = () => {
+/* ---------------- SHARE MY SCREEN ---------------- */
+document.getElementById('shareScreen').onclick = async () => {
 
     if (!conn || !conn.open) {
         alert("Not connected yet");
         return;
     }
 
-    conn.send({ type: 'startScreenShare' });
+    try {
+
+        const stream =
+            await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: false
+            });
+
+        // optional local preview
+        document.getElementById('screenVideo')
+            .srcObject = stream;
+
+        // send screen to other peer
+        currentCall = peer.call(conn.peer, stream);
+
+        // stop sharing when user ends it
+        stream.getVideoTracks()[0].onended = () => {
+
+            console.log("Screen share ended");
+
+            if (currentCall) {
+                currentCall.close();
+            }
+
+        };
+
+    } catch (err) {
+
+        console.log("Screen share cancelled:", err);
+
+    }
 
 };
 
@@ -143,32 +176,25 @@ SCREEN BLOCKED
 
         }
 
-        if (data.type === 'startScreenShare') {
-
-            navigator.mediaDevices.getDisplayMedia({
-                video: true,
-                audio: false
-            })
-            .then((stream) => {
-                currentCall = peer.call(conn.peer, stream);
-            })
-            .catch(err => {
-                console.log("Cancelled screen share", err);
-            });
-
-        }
-
     });
 
 }
 
 /* ---------------- BUTTONS ---------------- */
 document.getElementById('send').onclick = () => {
-    if (conn?.open) conn.send({ type: 'close' });
+
+    if (conn?.open) {
+        conn.send({ type: 'close' });
+    }
+
 };
 
 document.getElementById('send2').onclick = () => {
-    if (conn?.open) conn.send({ type: 'block' });
+
+    if (conn?.open) {
+        conn.send({ type: 'block' });
+    }
+
 };
 
 </script>
